@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
+<title>CoinPoker Preflop Trainer</title>
+<style>
+:root{--bg:#0b1020;--panel:#121a2b;--panel2:#182238;--text:#edf2ff;--muted:#9aa8c4;--line:#2a3650;--accent:#7dd3fc;--r:14px}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#080d19,#0e1526);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{padding:18px max(16px,env(safe-area-inset-left));border-bottom:1px solid var(--line);position:sticky;top:0;background:#0b1020ee;backdrop-filter:blur(12px);z-index:5}
+h1{font-size:20px;margin:0 0 5px}.sub{font-size:12px;color:var(--muted)}
+main{max-width:1100px;margin:auto;padding:16px}
+.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px}
+label{font-size:11px;color:var(--muted);display:block;margin-bottom:7px}.buttons{display:flex;gap:6px;flex-wrap:wrap}
+button{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:9px 11px;border-radius:10px;font-weight:700;cursor:pointer}
+button.active{outline:2px solid var(--accent);background:#20324a}
+.notice{margin:12px 0;padding:11px 13px;border-radius:12px;background:#111b2e;border:1px solid var(--line);font-size:12px;color:#cbd5e1}
+.board{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px;margin-top:12px}
+.titleRow{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}.titleRow h2{font-size:16px;margin:0}.pill{font-size:11px;color:#cbd5e1}
+.matrix{display:grid;grid-template-columns:repeat(13,1fr);gap:3px;max-width:760px;margin:auto}
+.cell{aspect-ratio:1;min-width:0;padding:0;border-radius:5px;font-size:clamp(9px,2.2vw,13px);border:1px solid #33415d;background:#202b40;color:#fff}
+.cell[data-a="3bet"]{background:#164e63}.cell[data-a="call"]{background:#365314}.cell[data-a="fold"]{background:#202938;color:#71809a}
+.cell.sel{outline:3px solid #fff;z-index:1}
+.legend{display:flex;gap:10px;justify-content:center;margin-top:12px;flex-wrap:wrap;font-size:11px}.dot{padding:6px 9px;border-radius:8px}.b3{background:#164e63}.ca{background:#365314}.fo{background:#202938}
+.detail{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px}.card{background:#0f1728;border:1px solid var(--line);border-radius:12px;padding:12px}.big{font-size:25px;font-weight:900}.action{font-size:16px;font-weight:800;margin-top:4px}.small{font-size:11px;color:var(--muted);line-height:1.5}
+.rules{margin-top:12px;display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.rules ul{margin:7px 0 0;padding-left:18px;color:#cbd5e1;font-size:12px;line-height:1.7}
+footer{padding:18px;text-align:center;color:#68758f;font-size:10px}
+@media(max-width:700px){.controls{grid-template-columns:1fr}.rules,.detail{grid-template-columns:1fr}main{padding:10px}.box{padding:10px}}
+</style>
+</head>
+<body>
+<header><h1>♠ CoinPoker Preflop Trainer</h1><div class="sub">6-Max · 100BB · NL10 / NL25 · 학습용 단순화 차트</div></header>
+<main>
+<div class="controls">
+<div class="box"><label>HERO POSITION</label><div class="buttons" id="hero"></div></div>
+<div class="box"><label>VILLAIN OPEN</label><div class="buttons" id="villain"></div></div>
+<div class="box"><label>SPOT</label><div class="buttons"><button class="active">Facing Open</button></div></div>
+</div>
+<div class="notice"><b id="spot">BB vs HJ</b> — 아래 핸드를 누르면 권장 기본 액션과 학습 포인트가 표시됩니다. 색상은 3BET / CALL / FOLD입니다.</div>
+<div class="board">
+<div class="titleRow"><h2>13×13 Hand Matrix</h2><span class="pill">AA → 22 / AK → 32</span></div>
+<div class="matrix" id="matrix"></div>
+<div class="legend"><span class="dot b3">3BET</span><span class="dot ca">CALL</span><span class="dot fo">FOLD</span></div>
+<div class="detail">
+<div class="card"><div class="small">SELECTED HAND</div><div class="big" id="hand">AKs</div><div class="action" id="action">3BET</div></div>
+<div class="card"><div class="small">NOTE</div><div id="note" class="small">BB에서는 강한 value 3-bet부터 확실히 챙기고, BTN/CO 상대로는 suited broadway·suited ace 계열을 단계적으로 늘린다.</div></div>
+</div>
+</div>
+<div class="rules">
+<div class="card"><b>이번 차트의 핵심</b><ul><li>BB vs HJ/CO/BTN/SB에서 3-bet 빈도를 의식적으로 올리기</li><li>SB는 flat보다 3-bet/fold 구조를 우선 학습</li><li>상대 포지션이 넓어질수록 3-bet 후보도 넓어짐</li></ul></div>
+<div class="card"><b>주의</b><ul><li>상용 solver의 exact frequency가 아님</li><li>rake, stack depth, open size에 따라 달라질 수 있음</li><li>실전에서는 상대 성향과 테이블 상황을 함께 고려</li></ul></div>
+</div>
+</main>
+<footer>CoinPoker Preflop Trainer · Personal study tool</footer>
+<script>
+const pos=["UTG","HJ","CO","BTN","SB","BB"];
+let H="BB",V="HJ",selected="AKs";
+const ranks=["A","K","Q","J","T","9","8","7","6","5","4","3","2"];
+const heroEl=document.querySelector("#hero"), vilEl=document.querySelector("#villain");
+function btns(el,arr,fn){el.innerHTML="";arr.forEach(x=>{let b=document.createElement("button");b.textContent=x;b.onclick=()=>{fn(x);[...el.children].forEach(z=>z.classList.remove("active"));b.classList.add("active")};el.appendChild(b)})}
+function isPair(r,c){return r===c}
+function handAt(i,j){let a=ranks[i],b=ranks[j];return a===b?a+b:(i<j?a+b+"s":b+a+"o")}
+function score(h){
+ const suited=h.endsWith("s"), off=h.endsWith("o"), r=h.replace(/[so]/g,"");
+ const [a,b]=r.split("");
+ const pairs=a===b;
+ const broad=(["A","K","Q","J","T"].includes(a)&&["A","K","Q","J","T"].includes(b));
+ let n=0;
+ const pv={A:14,K:13,Q:12,J:11,T:10,9:9,8:8,7:7,6:6,5:5,4:4,3:3,2:2};
+ n=pv[a]+pv[b];
+ if(pairs)n+=18;if(suited)n+=4;if(broad)n+=5;
+ if(a==="A")n+=7;if(a==="K")n+=3;
+ if(["AK","AQ","AJ","KQ","KJ","QJ"].includes(r))n+=5;
+ if(["76","65","54","87","98"].includes(r)&&suited)n+=5;
+ return n;
+}
+function action(h){
+ let s=score(h), opener={UTG:0,HJ:3,CO:7,BTN:12,SB:16}[V]??0;
+ // simplified positional model; intentionally not solver frequencies
+ if(H==="BB"){
+   let b3= s >= 35+opener*0.45;
+   let call= s >= 24+opener*0.35;
+   return b3?"3BET":call?"CALL":"FOLD";
+ }
+ if(H==="SB"){
+   if(V==="BTN") return s>=39?"3BET":s>=29?"CALL":"FOLD";
+   return s>=45?"3BET":s>=31?"CALL":"FOLD";
+ }
+ if(H==="BTN"){
+   return (V==="CO"||V==="HJ"||V==="UTG")?(s>=43?"3BET":s>=31?"CALL":"FOLD"):(s>=48?"3BET":s>=34?"CALL":"FOLD");
+ }
+ if(H==="CO"){
+   return s>=48?"3BET":s>=34?"CALL":"FOLD";
+ }
+ if(H==="HJ"){
+   return s>=52?"3BET":s>=37?"CALL":"FOLD";
+ }
+ if(H==="UTG") return s>=55?"3BET":s>=40?"CALL":"FOLD";
+ return "FOLD";
+}
+function note(a){
+ if(a==="3BET") return "이 스팟에서 3-bet 후보. 실제 빈도는 stack depth, open size, rake, 상대 성향에 따라 조정.";
+ if(a==="CALL") return "포지션/가격을 고려한 방어 후보. 3-bet 일변도보다 call range도 함께 유지.";
+ return "기본 폴드. 상대가 넓게 열더라도 무리하게 방어 범위를 늘리지 않는 학습용 기준.";
+}
+function render(){
+ document.querySelector("#spot").textContent=H+" vs "+V;
+ const m=document.querySelector("#matrix");m.innerHTML="";
+ ranks.forEach((_,i)=>ranks.forEach((_,j)=>{
+  const h=handAt(i,j),a=action(h),b=document.createElement("button");
+  b.className="cell"+(h===selected?" sel":"");b.dataset.a=a.toLowerCase();b.textContent=h;
+  b.onclick=()=>{selected=h;document.querySelector("#hand").textContent=h;document.querySelector("#action").textContent=a;document.querySelector("#note").textContent=note(a);render()};
+  m.appendChild(b);
+ }));
+ document.querySelector("#hand").textContent=selected;document.querySelector("#action").textContent=action(selected);document.querySelector("#note").textContent=note(action(selected));
+}
+btns(heroEl,pos,x=>{H=x;selected="AKs";render()});
+btns(vilEl,pos.filter(x=>x!=="BB"),x=>{V=x;selected="AKs";render()});
+[...heroEl.children][5].classList.add("active");[...vilEl.children][1].classList.add("active");
+render();
+</script>
+</body></html>
